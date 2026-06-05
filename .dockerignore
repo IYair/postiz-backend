@@ -1,0 +1,61 @@
+# Node / package managers
+**/node_modules
+**/.pnpm-store
+**/.pnpm-debug.log
+
+# Build outputs
+**/dist
+**/build
+**/.next
+**/.turbo
+**/.nx
+**/tsconfig.tsbuildinfo
+**/*.tsbuildinfo
+
+# Tests / coverage
+**/coverage
+**/.nyc_output
+**/reports
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+
+# Git / CI
+.git
+.github
+.gitlab
+Jenkins
+.coderabbit.yaml
+sonar-project.properties
+
+# Editor / OS
+.vscode
+.idea
+**/.DS_Store
+**/*.swp
+**/*.swo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+**/.secrets
+docker-data
+docker-compose*.yaml
+Dockerfile.dev
+
+# Docs / misc
+**/*.md
+**/LICENSE
+docs
+var/docker/create-namespace-default.sh
+
+# Logs
+**/npm-debug.log
+**/yarn-error.log
+**/*.log
+
+# Existing Postiz artifacts
+libraries/plugins/src/plugins.ts
+i18n.cache
+apps/backend/uploads

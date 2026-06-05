@@ -1,0 +1,152 @@
+services:
+  postiz-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: always
+    environment:
+      NODE_ENV: "production"
+      DISABLE_SOURCE_MAPS: "${DISABLE_SOURCE_MAPS:-true}"
+      SENTRY_DISABLE: "${SENTRY_DISABLE:-true}"
+      MAIN_URL: "${BACKEND_PUBLIC_URL:-https://${POSTIZ_HOST:-localhost:4007}}"
+      FRONTEND_URL: "${FRONTEND_URL}"
+      NEXT_PUBLIC_BACKEND_URL: "${BACKEND_PUBLIC_URL:-https://${POSTIZ_HOST:-localhost:4007}}/api"
+      BACKEND_URL: "${BACKEND_PUBLIC_URL:-https://${POSTIZ_HOST:-localhost:4007}}/api"
+      JWT_SECRET: "${JWT_SECRET}"
+      DATABASE_URL: "postgresql://${DB_USER:-postiz-user}:${DB_PASSWORD:-postiz-password}@postiz-postgres:5432/${DB_NAME:-postiz-db-local}"
+      REDIS_URL: "redis://postiz-redis:6379"
+      BACKEND_INTERNAL_URL: "http://localhost:3000"
+      TEMPORAL_ADDRESS: "temporal:7233"
+      IS_GENERAL: "true"
+      DISABLE_REGISTRATION: "${DISABLE_REGISTRATION:-false}"
+      RUN_CRON: "${RUN_CRON:-true}"
+      STORAGE_PROVIDER: "${STORAGE_PROVIDER:-local}"
+      UPLOAD_DIRECTORY: "${UPLOAD_DIRECTORY:-/uploads}"
+      NEXT_PUBLIC_UPLOAD_DIRECTORY: "${NEXT_PUBLIC_UPLOAD_DIRECTORY:-/uploads}"
+      CLOUDFLARE_ACCOUNT_ID: "${CLOUDFLARE_ACCOUNT_ID:-}"
+      CLOUDFLARE_ACCESS_KEY: "${CLOUDFLARE_ACCESS_KEY:-}"
+      CLOUDFLARE_SECRET_ACCESS_KEY: "${CLOUDFLARE_SECRET_ACCESS_KEY:-}"
+      CLOUDFLARE_BUCKETNAME: "${CLOUDFLARE_BUCKETNAME:-}"
+      CLOUDFLARE_BUCKET_URL: "${CLOUDFLARE_BUCKET_URL:-}"
+      CLOUDFLARE_REGION: "${CLOUDFLARE_REGION:-auto}"
+      NX_ADD_PLUGINS: "false"
+      FACEBOOK_APP_ID: "${FACEBOOK_APP_ID:-}"
+      FACEBOOK_APP_SECRET: "${FACEBOOK_APP_SECRET:-}"
+      INSTAGRAM_APP_ID: "${INSTAGRAM_APP_ID:-}"
+      INSTAGRAM_APP_SECRET: "${INSTAGRAM_APP_SECRET:-}"
+      LINKEDIN_CLIENT_ID: "${LINKEDIN_CLIENT_ID:-}"
+      LINKEDIN_CLIENT_SECRET: "${LINKEDIN_CLIENT_SECRET:-}"
+      X_API_KEY: "${X_API_KEY:-}"
+      X_API_SECRET: "${X_API_SECRET:-}"
+      TIKTOK_CLIENT_ID: "${TIKTOK_CLIENT_ID:-}"
+      TIKTOK_CLIENT_SECRET: "${TIKTOK_CLIENT_SECRET:-}"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY}"
+    volumes:
+      - postiz-config:/config/
+      - postiz-uploads:/uploads/
+    ports:
+      - "5000:5000"
+    depends_on:
+      postiz-postgres:
+        condition: service_healthy
+      postiz-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    networks:
+      - postiz-net
+      - dokploy-network
+
+  postiz-postgres:
+    image: postgres:17-alpine
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-postiz-password}"
+      POSTGRES_USER: "${DB_USER:-postiz-user}"
+      POSTGRES_DB: "${DB_NAME:-postiz-db-local}"
+    volumes:
+      - postiz-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U ${DB_USER:-postiz-user} -d ${DB_NAME:-postiz-db-local}
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - postiz-net
+
+  postiz-redis:
+    image: redis:7.2
+    restart: always
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - postiz-redis-data:/data
+    networks:
+      - postiz-net
+
+  temporal-elasticsearch:
+    image: elasticsearch:7.17.27
+    restart: always
+    environment:
+      - cluster.routing.allocation.disk.threshold_enabled=true
+      - cluster.routing.allocation.disk.watermark.low=512mb
+      - cluster.routing.allocation.disk.watermark.high=256mb
+      - cluster.routing.allocation.disk.watermark.flood_stage=128mb
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m
+      - xpack.security.enabled=false
+    networks:
+      - postiz-net
+    expose:
+      - 9200
+
+  temporal-postgresql:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_USER: temporal
+    networks:
+      - postiz-net
+    expose:
+      - 5432
+
+  temporal:
+    image: temporalio/auto-setup:1.28.2
+    restart: always
+    depends_on:
+      - temporal-postgresql
+      - temporal-elasticsearch
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=temporal-postgresql
+      - ENABLE_ES=true
+      - ES_SEEDS=temporal-elasticsearch
+      - ES_VERSION=v7
+      - TEMPORAL_NAMESPACE=default
+    networks:
+      - postiz-net
+    expose:
+      - 7233
+
+volumes:
+  postiz-postgres-data:
+  postiz-redis-data:
+  postiz-config:
+  postiz-uploads:
+
+networks:
+  postiz-net:
+    driver: bridge
+  dokploy-network:
+    external: true

@@ -1,0 +1,103 @@
+# syntax=docker/dockerfile:1.7
+
+ARG NODE_VERSION=22.20-bookworm-slim
+ARG PNPM_VERSION=10.6.1
+
+FROM node:${NODE_VERSION} AS builder-base
+ARG PNPM_VERSION
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      g++ make python3 pkg-config ca-certificates \
+      libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g pnpm@${PNPM_VERSION} prisma@6.5.0 \
+      --no-update-notifier --no-fund
+
+WORKDIR /app
+
+FROM builder-base AS deps
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/backend/package.json      apps/backend/package.json
+COPY apps/orchestrator/package.json apps/orchestrator/package.json
+COPY libraries/nestjs-libraries/src/database/prisma/schema.prisma \
+     libraries/nestjs-libraries/src/database/prisma/schema.prisma
+
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --ignore-scripts \
+ && prisma generate \
+      --schema /app/libraries/nestjs-libraries/src/database/prisma/schema.prisma
+
+FROM deps AS builder
+
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV DISABLE_SOURCE_MAPS=true
+ENV SENTRY_DISABLE=true
+ENV NODE_ENV=production
+
+COPY . .
+
+RUN pnpm rebuild bcrypt || true
+RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build:backend \
+ && NODE_OPTIONS="--max-old-space-size=4096" pnpm run build:orchestrator
+
+FROM builder-base AS prod-deps
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/backend/package.json      apps/backend/package.json
+COPY apps/orchestrator/package.json apps/orchestrator/package.json
+COPY libraries/nestjs-libraries/src/database/prisma/schema.prisma \
+     libraries/nestjs-libraries/src/database/prisma/schema.prisma
+
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --prod --ignore-scripts \
+ && pnpm rebuild bcrypt \
+ && prisma generate \
+      --schema /app/libraries/nestjs-libraries/src/database/prisma/schema.prisma
+
+FROM node:${NODE_VERSION} AS runner
+ARG PNPM_VERSION
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      nginx tini ca-certificates openssl curl \
+      libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libjpeg62-turbo libgif7 librsvg2-2 \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g --no-update-notifier --no-fund \
+      pnpm@${PNPM_VERSION} pm2 prisma@6.5.0
+
+RUN addgroup --system www \
+ && adduser  --system --ingroup www --home /www --shell /usr/sbin/nologin www \
+ && mkdir -p /www /uploads /config \
+ && chown -R www:www /www /var/lib/nginx /uploads /config
+
+WORKDIR /app
+
+COPY --from=builder /app/package.json        ./package.json
+COPY --from=builder /app/pnpm-lock.yaml      ./pnpm-lock.yaml
+COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=builder /app/.npmrc              ./.npmrc
+COPY --from=prod-deps /app/node_modules      ./node_modules
+COPY --from=builder /app/libraries           ./libraries
+
+COPY --from=builder /app/apps/backend/package.json ./apps/backend/package.json
+COPY --from=builder /app/apps/backend/dist         ./apps/backend/dist
+COPY --from=builder /app/apps/orchestrator/package.json ./apps/orchestrator/package.json
+COPY --from=builder /app/apps/orchestrator/dist         ./apps/orchestrator/dist
+
+COPY var/docker/nginx.backend.conf            /etc/nginx/nginx.conf
+COPY var/docker/ecosystem.backend.config.cjs  /app/ecosystem.config.cjs
+COPY var/docker/entrypoint.backend.sh         /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PATH="/app/node_modules/.bin:${PATH}"
+
+EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -fsS http://localhost:5000/ >/dev/null || exit 1
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
