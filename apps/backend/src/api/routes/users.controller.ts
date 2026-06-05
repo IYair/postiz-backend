@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.request';
 import { sign } from 'jsonwebtoken';
-import { Organization, User } from '@prisma/client';
+import { Organization, Provider, User } from '@prisma/client';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { StripeService } from '@gitroom/nestjs-libraries/services/stripe.service';
@@ -24,6 +24,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from '@gitroom/nestjs-libraries/database/prisma/users/users.service';
 import { UserDetailDto } from '@gitroom/nestjs-libraries/dtos/users/user.details.dto';
 import { EmailNotificationsDto } from '@gitroom/nestjs-libraries/dtos/users/email-notifications.dto';
+import { ChangePasswordDto } from '@gitroom/nestjs-libraries/dtos/users/change-password.dto';
 import { HttpForbiddenException } from '@gitroom/nestjs-libraries/services/exception.filter';
 import { RealIP } from 'nestjs-real-ip';
 import { UserAgent } from '@gitroom/nestjs-libraries/user/user.agent';
@@ -31,6 +32,7 @@ import { TrackEnum } from '@gitroom/nestjs-libraries/user/track.enum';
 import { TrackService } from '@gitroom/nestjs-libraries/track/track.service';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { AuthorizationActions, Sections } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
+import { AuthService as AuthChecker } from '@gitroom/helpers/auth/auth.service';
 
 @ApiTags('User')
 @Controller('/user')
@@ -143,6 +145,24 @@ export class UsersController {
     @Body() body: UserDetailDto
   ) {
     return this._userService.changePersonal(user.id, body);
+  }
+
+  @Post('/change-password')
+  async changePassword(
+    @GetUserFromRequest() user: User,
+    @Body() body: ChangePasswordDto
+  ) {
+    const currentUser = await this._userService.getUserById(user.id);
+    if (!currentUser || currentUser.providerName !== Provider.LOCAL) {
+      throw new HttpException('Password can only be changed for local accounts', 400);
+    }
+
+    if (!AuthChecker.comparePassword(body.currentPassword, currentUser.password)) {
+      throw new HttpException('Current password is incorrect', 400);
+    }
+
+    await this._userService.updatePassword(user.id, body.password);
+    return { changePassword: true };
   }
 
   @Get('/email-notifications')
