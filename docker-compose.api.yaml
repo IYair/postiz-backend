@@ -1,0 +1,45 @@
+services:
+  postiz-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: always
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: "production"
+      MAIN_URL: "https://postiz-api.alianzadev.codes"
+      FRONTEND_URL: "https://postiz.alianzadev.codes"
+      NEXT_PUBLIC_BACKEND_URL: "https://postiz-api.alianzadev.codes/api"
+      BACKEND_URL: "https://postiz-api.alianzadev.codes/api"
+      BACKEND_INTERNAL_URL: "http://localhost:3000"
+      DATABASE_URL: "${DATABASE_URL}"
+      REDIS_URL: "${REDIS_URL}"
+      TEMPORAL_ADDRESS: "${TEMPORAL_ADDRESS}"
+      STORAGE_PROVIDER: "cloudflare"
+      RUN_CRON: "true"
+      IS_GENERAL: "true"
+      SENTRY_DISABLE: "true"
+      DISABLE_SOURCE_MAPS: "true"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.postiz-api-web.entrypoints: "web"
+      traefik.http.routers.postiz-api-web.rule: "Host(`postiz-api.alianzadev.codes`)"
+      traefik.http.routers.postiz-api-web.service: "postiz-api-web"
+      traefik.http.services.postiz-api-web.loadbalancer.server.port: "5000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    networks:
+      - postiz-existing
+      - dokploy-network
+
+networks:
+  postiz-existing:
+    external: true
+    name: social-media-postiz-3ngyje_postiz-net
+  dokploy-network:
+    external: true

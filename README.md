@@ -18,3 +18,13 @@ ENCRYPTION_KEY=64-hex-character-key
 ```
 
 Keep database, Redis, storage, social provider and payment variables on the backend server.
+
+## Existing Server Stack
+
+For the current Dokploy server that already has Postiz Postgres, Redis and Temporal running, use:
+
+```bash
+docker compose -f docker-compose.api.yaml up -d --build
+```
+
+This publishes the API at `https://postiz-api.alianzadev.codes` through the existing `dokploy-network`.
