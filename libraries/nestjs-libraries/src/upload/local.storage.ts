@@ -1,8 +1,8 @@
 import { IUploadProvider } from './upload.interface';
 import { mkdirSync, unlink, writeFileSync } from 'fs';
-// @ts-ignore
-import mime from 'mime';
-import { extname } from 'path';
+import { isSafePublicHttpsUrl } from '@gitroom/nestjs-libraries/dtos/webhooks/webhook.url.validator';
+import { ssrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
+import { parseDataUrl } from '@gitroom/nestjs-libraries/upload/data.url';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { fromBuffer } = require('file-type');
 
@@ -15,31 +15,52 @@ const LOCAL_STORAGE_ALLOWED_MIME = new Set<string>([
   'image/bmp',
   'image/tiff',
   'video/mp4',
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/wav',
+  'audio/ogg',
 ]);
 export class LocalStorage implements IUploadProvider {
   constructor(private uploadDirectory: string) {}
 
   async uploadSimple(input: string | Buffer) {
     let buffer: Buffer;
-    let contentType = 'image/png';
 
     if (Buffer.isBuffer(input)) {
       buffer = input;
+    } else if (input.startsWith('data:')) {
+      // gpt-image / multi-AI flows hand us a data: URL instead of a remote URL.
+      const dataUrl = parseDataUrl(input);
+      if (!dataUrl) {
+        throw new Error('Unsupported file type.');
+      }
+      buffer = dataUrl.buffer;
     } else if (input.startsWith('http')) {
-      const loadImage = await fetch(input);
-      contentType =
-        loadImage?.headers?.get('content-type') ||
-        loadImage?.headers?.get('Content-Type') ||
-        'image/png';
+      // SSRF guard: only fetch public https hosts, through an undici dispatcher
+      // that re-validates the resolved IP on every redirect hop.
+      if (!(await isSafePublicHttpsUrl(input))) {
+        throw new Error('Unsafe URL');
+      }
+      const loadImage = await fetch(input, {
+        // @ts-ignore — undici option, not in lib.dom fetch types
+        dispatcher: ssrfSafeDispatcher,
+      });
       buffer = Buffer.from(await loadImage.arrayBuffer());
     } else {
       // base64 fallback
       buffer = Buffer.from(input, 'base64');
     }
 
-    const findExtension = mime.getExtension(contentType) ||
-      (typeof input === 'string' ? input.split('?')[0].split('#')[0].split('.').pop() : null) ||
-      'png';
+    // Never trust the claimed mime/extension (data URL header, remote
+    // content-type, or URL path): sniff the real type from the bytes and only
+    // accept the allow-list, otherwise an attacker could write an arbitrary
+    // file (e.g. .html/.svg with embedded script) into the publicly served
+    // uploads directory on the app's own origin.
+    const detected = await fromBuffer(buffer);
+    if (!detected || !LOCAL_STORAGE_ALLOWED_MIME.has(detected.mime)) {
+      throw new Error('Unsupported file type.');
+    }
+    const findExtension = detected.ext;
 
     const now = new Date();
     const year = now.getFullYear();

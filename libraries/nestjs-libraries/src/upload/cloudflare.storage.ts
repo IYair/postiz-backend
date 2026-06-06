@@ -6,6 +6,9 @@ import mime from 'mime-types';
 import { getExtension } from 'mime';
 import { IUploadProvider } from './upload.interface';
 import axios from 'axios';
+import { isSafePublicHttpsUrl } from '@gitroom/nestjs-libraries/dtos/webhooks/webhook.url.validator';
+import { ssrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
+import { parseDataUrl } from '@gitroom/nestjs-libraries/upload/data.url';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { fromBuffer } = require('file-type');
 
@@ -75,8 +78,22 @@ class CloudflareStorage implements IUploadProvider {
 
     if (Buffer.isBuffer(input)) {
       body = input;
+    } else if (input.startsWith('data:')) {
+      const dataUrl = parseDataUrl(input);
+      if (!dataUrl) {
+        throw new Error('Unsupported file type.');
+      }
+      body = dataUrl.buffer;
     } else if (input.startsWith('http')) {
-      const response = await fetch(input);
+      // SSRF guard: only fetch public https hosts, through an undici dispatcher
+      // that re-validates the resolved IP on every redirect hop.
+      if (!(await isSafePublicHttpsUrl(input))) {
+        throw new Error('Unsafe URL');
+      }
+      const response = await fetch(input, {
+        // @ts-ignore — undici option, not in lib.dom fetch types
+        dispatcher: ssrfSafeDispatcher,
+      });
       body = Buffer.from(await response.arrayBuffer());
     } else {
       body = Buffer.from(input, 'base64');

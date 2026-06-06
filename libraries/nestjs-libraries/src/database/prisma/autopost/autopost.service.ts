@@ -318,7 +318,7 @@ export class AutopostService {
           },
         ],
       })),
-    });
+    }, 'AUTOPOST');
   }
 
   async updateUrl(state: WorkflowChannelsState) {

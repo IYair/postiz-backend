@@ -43,6 +43,10 @@ import { OAuthRepository } from '@gitroom/nestjs-libraries/database/prisma/oauth
 import { OAuthService } from '@gitroom/nestjs-libraries/database/prisma/oauth/oauth.service';
 import { AnnouncementsRepository } from '@gitroom/nestjs-libraries/database/prisma/announcements/announcements.repository';
 import { AnnouncementsService } from '@gitroom/nestjs-libraries/database/prisma/announcements/announcements.service';
+import { ErrorsRepository } from '@gitroom/nestjs-libraries/database/prisma/errors/errors.repository';
+import { ErrorsService } from '@gitroom/nestjs-libraries/database/prisma/errors/errors.service';
+import { AdminStatsRepository } from '@gitroom/nestjs-libraries/database/prisma/admin-stats/admin-stats.repository';
+import { AdminStatsService } from '@gitroom/nestjs-libraries/database/prisma/admin-stats/admin-stats.service';
 import { ImagePresetRepository } from '@gitroom/nestjs-libraries/database/prisma/organizations/image-preset.repository';
 
 @Global()
@@ -97,6 +101,10 @@ import { ImagePresetRepository } from '@gitroom/nestjs-libraries/database/prisma
     AiConfigService,
     AiConfigRepository,
     ImagePresetRepository,
+    ErrorsRepository,
+    ErrorsService,
+    AdminStatsRepository,
+    AdminStatsService,
   ],
   get exports() {
     return this.providers;

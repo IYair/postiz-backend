@@ -97,11 +97,34 @@ export class PostActivity {
       true,
       orgId
     );
-    if (!getPosts || getPosts.length === 0 || getPosts[0].parentPostId) {
+    if (
+      !getPosts ||
+      getPosts.length === 0 ||
+      getPosts[0].parentPostId ||
+      getPosts[0].deletedAt
+    ) {
       return [];
     }
 
     return getPosts;
+  }
+
+  @ActivityMethod()
+  async getPost(orgId: string, postId: string) {
+    if (process.env.STRIPE_SECRET_KEY) {
+      const subscription = await this._subscriptionService.getSubscription(
+        orgId
+      );
+      if (!subscription) {
+        return false;
+      }
+    }
+    const post = await this._postService.getPostById(postId, orgId);
+    if (post.deletedAt) {
+      return false;
+    }
+
+    return post;
   }
 
   @ActivityMethod()

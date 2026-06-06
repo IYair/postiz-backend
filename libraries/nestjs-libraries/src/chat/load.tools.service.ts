@@ -83,6 +83,7 @@ export class LoadToolsService {
         - Generate text for posts
         - Show global analytics about socials
         - List integrations (channels)
+        - List groups (customers) and filter the channels by a group
 
       - We schedule posts to different integration like facebook, instagram, etc. but to the user we don't say integrations we say channels as integration is the technical name
       - When scheduling a post, you must follow the social media rules and best practices.
