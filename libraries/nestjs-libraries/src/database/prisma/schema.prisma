@@ -468,6 +468,7 @@ model Notifications {
   organizationId String
   content        String
   link           String?
+  image          String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?

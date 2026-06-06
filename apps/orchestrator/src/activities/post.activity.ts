@@ -218,7 +218,9 @@ export class PostActivity {
     message: string,
     sendEmail = false,
     digest = false,
-    type: NotificationType = 'success'
+    type: NotificationType = 'success',
+    link?: string,
+    image?: string
   ) {
     return this._notificationService.inAppNotification(
       orgId,
@@ -226,7 +228,9 @@ export class PostActivity {
       message,
       sendEmail,
       digest,
-      type
+      type,
+      link,
+      image
     );
   }
 

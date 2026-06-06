@@ -44,6 +44,15 @@ const {
   },
 });
 
+const getNotificationImage = (image?: string | null) => {
+  try {
+    const [firstImage] = JSON.parse(image || '[]');
+    return firstImage?.thumbnail || firstImage?.path;
+  } catch {
+    return undefined;
+  }
+};
+
 const poke = defineSignal('poke');
 
 const iterate = Array.from({ length: 5 });
@@ -182,7 +191,10 @@ export async function postWorkflowV101({
               post.integration.providerIdentifier
             )} at ${postsResults[0].releaseURL}`,
             true,
-            true
+            true,
+            'success',
+            postsResults[0].releaseURL,
+            getNotificationImage(post.image)
           );
         }
 

@@ -44,9 +44,16 @@ export class NotificationService {
     message: string,
     sendEmail = false,
     digest = false,
-    type: NotificationType = 'success'
+    type: NotificationType = 'success',
+    link?: string,
+    image?: string
   ) {
-    await this._notificationRepository.createNotification(orgId, message);
+    await this._notificationRepository.createNotification(
+      orgId,
+      message,
+      link,
+      image
+    );
     if (!sendEmail) {
       return;
     }

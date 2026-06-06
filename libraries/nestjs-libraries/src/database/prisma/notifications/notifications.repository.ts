@@ -36,11 +36,18 @@ export class NotificationsRepository {
     };
   }
 
-  async createNotification(organizationId: string, content: string) {
+  async createNotification(
+    organizationId: string,
+    content: string,
+    link?: string,
+    image?: string
+  ) {
     await this._notifications.model.notifications.create({
       data: {
         organizationId,
         content,
+        link,
+        image,
       },
     });
   }
@@ -77,6 +84,7 @@ export class NotificationsRepository {
           id: true,
           content: true,
           link: true,
+          image: true,
           createdAt: true,
         },
       }),
@@ -119,6 +127,8 @@ export class NotificationsRepository {
         select: {
           createdAt: true,
           content: true,
+          link: true,
+          image: true,
         },
       }),
     };
