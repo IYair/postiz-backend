@@ -39,10 +39,10 @@ export const GEMINI_ASPECT_MAP: Record<string, string> = {
 export const DEFAULT_TEXT_MODELS: Record<TextProviderType, string> = {
   anthropic: 'claude-sonnet-4-20250514',
   openai: 'gpt-4.1',
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-3.5-flash',
 };
 
 export const DEFAULT_IMAGE_MODELS: Record<ImageProviderType, string> = {
   openai: 'dall-e-3',
-  gemini: 'gemini-3.1-flash-image-preview',
+  gemini: 'gemini-3.1-flash-image',
 };
