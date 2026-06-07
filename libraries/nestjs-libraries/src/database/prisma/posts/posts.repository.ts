@@ -262,7 +262,27 @@ export class PostsRepository {
         ? {}
         : { publishDate: { gte: dayjs.utc().toDate() } }),
       ...(query.search
-        ? { content: { contains: query.search, mode: 'insensitive' as const } }
+        ? {
+            OR: [
+              {
+                content: {
+                  contains: query.search,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                childrenPost: {
+                  some: {
+                    deletedAt: null as Date | null,
+                    content: {
+                      contains: query.search,
+                      mode: 'insensitive' as const,
+                    },
+                  },
+                },
+              },
+            ],
+          }
         : {}),
       deletedAt: null as Date | null,
       parentPostId: null as string | null,
@@ -310,6 +330,15 @@ export class PostsRepository {
               picture: true,
             },
           },
+          ...(query.search
+            ? {
+                childrenPost: {
+                  select: {
+                    content: true,
+                  },
+                },
+              }
+            : {}),
         },
       }),
       this._post.model.post.count({ where }),
