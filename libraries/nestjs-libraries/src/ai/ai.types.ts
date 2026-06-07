@@ -3,9 +3,11 @@ import { z } from 'zod';
 
 export const TEXT_PROVIDERS = ['anthropic', 'openai', 'gemini'] as const;
 export const IMAGE_PROVIDERS = ['openai', 'gemini'] as const;
+export const VIDEO_PROVIDERS = ['google'] as const;
 
 export type TextProviderType = (typeof TEXT_PROVIDERS)[number];
 export type ImageProviderType = (typeof IMAGE_PROVIDERS)[number];
+export type VideoProviderType = (typeof VIDEO_PROVIDERS)[number];
 
 export const EncryptedKeysSchema = z.object({
   anthropic: z.string().optional(),
@@ -45,4 +47,16 @@ export const DEFAULT_TEXT_MODELS: Record<TextProviderType, string> = {
 export const DEFAULT_IMAGE_MODELS: Record<ImageProviderType, string> = {
   openai: 'dall-e-3',
   gemini: 'gemini-3.1-flash-image',
+};
+
+// Default video models per provider (Veo via Gemini API).
+export const DEFAULT_VIDEO_MODELS: Record<VideoProviderType, string> = {
+  google: 'veo-3.0-fast-generate-001',
+};
+
+// Veo aspect ratio mapping. Veo soporta 16:9 y 9:16; 'auto' cae a 16:9.
+export const VEO_ASPECT_MAP: Record<string, string> = {
+  '16:9': '16:9',
+  '9:16': '9:16',
+  auto: '16:9',
 };
