@@ -19,6 +19,7 @@ import { AiProviderResolver } from '@gitroom/nestjs-libraries/ai/ai.provider-res
 import {
   TEXT_PROVIDERS,
   IMAGE_PROVIDERS,
+  VIDEO_PROVIDERS,
   TextProviderType,
 } from '@gitroom/nestjs-libraries/ai/ai.types';
 
@@ -64,6 +65,16 @@ export class AiConfigController {
     ) {
       throw new HttpException(
         `Invalid imageProvider. Must be one of: ${IMAGE_PROVIDERS.join(', ')}`,
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    if (
+      body.videoProvider &&
+      !VIDEO_PROVIDERS.includes(body.videoProvider as any)
+    ) {
+      throw new HttpException(
+        `Invalid videoProvider. Must be one of: ${VIDEO_PROVIDERS.join(', ')}`,
         HttpStatus.BAD_REQUEST
       );
     }
