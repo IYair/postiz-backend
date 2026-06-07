@@ -41,6 +41,7 @@ export interface VideoOptions {
   // implementa solo prompt + aspectRatio. Se declaran aquí para fijar el contrato.
   durationSeconds?: number;
   seed?: number;
+  numberOfVideos?: number;
   startImage?: ImageReference;
   endImage?: ImageReference;
   referenceImages?: ImageReference[];
@@ -48,7 +49,7 @@ export interface VideoOptions {
 }
 
 export interface VideoGenerationResult {
-  url: string;
+  urls: string[];
 }
 
 export interface VideoProvider {
