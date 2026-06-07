@@ -40,6 +40,8 @@ export class AiConfigRepository {
       imageProvider?: string | null;
       textModel?: string | null;
       imageModel?: string | null;
+      videoProvider?: string | null;
+      videoModel?: string | null;
       encryptedKeys: Record<string, string>;
     }
   ) {

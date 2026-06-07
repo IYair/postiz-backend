@@ -5,6 +5,7 @@ import {
   EncryptedKeysSchema,
   TextProviderType,
   ImageProviderType,
+  VideoProviderType,
 } from '@gitroom/nestjs-libraries/ai/ai.types';
 
 export interface UserAiConfigDto {
@@ -12,6 +13,8 @@ export interface UserAiConfigDto {
   imageProvider?: ImageProviderType | null;
   textModel?: string | null;
   imageModel?: string | null;
+  videoProvider?: VideoProviderType | null;
+  videoModel?: string | null;
   keys: { anthropic?: string; openai?: string; gemini?: string };
 }
 
@@ -20,6 +23,8 @@ export interface UserAiConfigResponse {
   imageProvider?: ImageProviderType | null;
   textModel?: string | null;
   imageModel?: string | null;
+  videoProvider?: VideoProviderType | null;
+  videoModel?: string | null;
   keyHints: { anthropic?: string; openai?: string; gemini?: string };
 }
 
@@ -46,6 +51,8 @@ export class AiConfigService {
       imageProvider: config.imageProvider as ImageProviderType | null,
       textModel: config.textModel,
       imageModel: config.imageModel,
+      videoProvider: config.videoProvider as VideoProviderType | null,
+      videoModel: config.videoModel,
       keyHints,
     };
   }
@@ -69,6 +76,8 @@ export class AiConfigService {
     imageProvider: string | null;
     textModel: string | null;
     imageModel: string | null;
+    videoProvider: string | null;
+    videoModel: string | null;
     encryptedKeys: unknown;
   }) {
     const parsed = EncryptedKeysSchema.parse(row.encryptedKeys);
@@ -84,6 +93,8 @@ export class AiConfigService {
         imageProvider: row.imageProvider as ImageProviderType | null,
         textModel: row.textModel,
         imageModel: row.imageModel,
+        videoProvider: row.videoProvider as VideoProviderType | null,
+        videoModel: row.videoModel,
       },
       keys,
     };
@@ -111,6 +122,8 @@ export class AiConfigService {
       imageProvider: dto.imageProvider,
       textModel: dto.textModel,
       imageModel: dto.imageModel,
+      videoProvider: dto.videoProvider,
+      videoModel: dto.videoModel,
       encryptedKeys: mergedKeys,
     });
   }
