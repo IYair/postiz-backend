@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { LRUCache } from 'lru-cache';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { TextProvider, ImageProvider } from './ai.interfaces';
+import { TextProvider, ImageProvider, VideoProvider } from './ai.interfaces';
 import { AiConfigService } from '@gitroom/nestjs-libraries/database/prisma/ai-config/ai-config.service';
 import {
   TextProviderType,
   ImageProviderType,
   DEFAULT_TEXT_MODELS,
   DEFAULT_IMAGE_MODELS,
+  DEFAULT_VIDEO_MODELS,
 } from './ai.types';
+import { GoogleVeoAdapter } from './adapters/video/google-veo.adapter';
+import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
 import { ClaudeTextAdapter } from './adapters/text/claude-text.adapter';
 import { OpenAITextAdapter } from './adapters/text/openai-text.adapter';
 import { GeminiTextAdapter } from './adapters/text/gemini-text.adapter';
@@ -23,6 +26,7 @@ const CACHE_OPTIONS = { max: 500, ttl: 5 * 60 * 1000 }; // 5 minutes
 export class AiProviderResolver {
   private textCache = new LRUCache<string, TextProvider>(CACHE_OPTIONS);
   private imageCache = new LRUCache<string, ImageProvider>(CACHE_OPTIONS);
+  private videoCache = new LRUCache<string, VideoProvider>(CACHE_OPTIONS);
   private langChainChatCache = new LRUCache<string, BaseChatModel>(
     CACHE_OPTIONS
   );
@@ -60,6 +64,25 @@ export class AiProviderResolver {
       model
     );
     this.imageCache.set(userId, adapter);
+    return adapter;
+  }
+
+  async getVideoProvider(userId: string): Promise<VideoProvider | null> {
+    const cached = this.videoCache.get(userId);
+    if (cached) return cached;
+    const data = await this.configService.getDecryptedKeys(userId);
+    if (!data || !data.config.videoProvider) return null;
+    const { config, keys } = data;
+    // Video reusa la key de Google (almacenada como 'gemini').
+    const apiKey = keys['gemini'];
+    if (!apiKey) return null;
+    const model = config.videoModel ?? DEFAULT_VIDEO_MODELS['google'];
+    const adapter = new GoogleVeoAdapter(
+      apiKey,
+      model,
+      UploadFactory.createStorage()
+    );
+    this.videoCache.set(userId, adapter);
     return adapter;
   }
 
@@ -128,6 +151,7 @@ export class AiProviderResolver {
   invalidateCache(userId: string): void {
     this.textCache.delete(userId);
     this.imageCache.delete(userId);
+    this.videoCache.delete(userId);
     this.langChainChatCache.delete(userId);
     this.vercelAiCache.delete(userId);
   }
