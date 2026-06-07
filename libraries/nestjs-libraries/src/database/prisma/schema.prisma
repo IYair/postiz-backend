@@ -49,6 +49,7 @@ model Organization {
   oauthApp            OAuthApp[]
   oauthAuthorizations OAuthAuthorization[]
   imagePresets        ImagePreset[]
+  videoGenerationJobs VideoGenerationJob[]
 
   @@index([apiKey])
   @@index([streakSince])
@@ -1005,4 +1006,22 @@ model UserAiConfig {
   updatedAt     DateTime @updatedAt
 
   @@map("user_ai_config")
+}
+
+model VideoGenerationJob {
+  id             String       @id @default(uuid())
+  organizationId String
+  userId         String
+  status         String       @default("processing")
+  mode           String
+  params         Json
+  resultMediaIds Json?
+  creditIds      Json?
+  error          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("video_generation_job")
 }
