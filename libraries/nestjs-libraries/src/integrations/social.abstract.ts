@@ -224,6 +224,9 @@ export abstract class SocialAbstract {
       );
     }
 
+    console.error(
+      `[fetch] ${identifier || url} failed: status=${request.status} body=${json}`
+    );
     throw new BadBody(
       identifier,
       json,
