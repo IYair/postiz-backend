@@ -32,3 +32,28 @@ export interface TextProvider {
 export interface ImageProvider {
   generateImage(prompt: string, options?: ImageOptions): Promise<Buffer>;
 }
+
+export type VideoAspectRatio = '16:9' | '9:16' | 'auto';
+
+export interface VideoOptions {
+  aspectRatio: VideoAspectRatio;
+  // Las opciones de abajo las consumen las Fases B/C; el adapter de Fase A
+  // implementa solo prompt + aspectRatio. Se declaran aquí para fijar el contrato.
+  durationSeconds?: number;
+  seed?: number;
+  startImage?: ImageReference;
+  endImage?: ImageReference;
+  referenceImages?: ImageReference[];
+  negativePrompt?: string;
+}
+
+export interface VideoGenerationResult {
+  url: string;
+}
+
+export interface VideoProvider {
+  generateVideo(
+    prompt: string,
+    options: VideoOptions
+  ): Promise<VideoGenerationResult>;
+}
