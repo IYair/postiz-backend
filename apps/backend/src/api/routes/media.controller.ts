@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
+  HttpStatus,
   Param,
   Post,
   Query,
@@ -30,6 +32,10 @@ import {
 import { SaveMediaInformationDto } from '@gitroom/nestjs-libraries/dtos/media/save.media.information.dto';
 import { VideoDto } from '@gitroom/nestjs-libraries/dtos/videos/video.dto';
 import { VideoFunctionDto } from '@gitroom/nestjs-libraries/dtos/videos/video.function.dto';
+import { AiVideoDto } from '@gitroom/nestjs-libraries/dtos/videos/ai-video.dto';
+import { VideoJobService } from '@gitroom/nestjs-libraries/database/prisma/video-jobs/video-job.service';
+import { TemporalService } from 'nestjs-temporal-core';
+import { validateVideoModeParams } from '@gitroom/nestjs-libraries/ai/video/ai-video.helpers';
 
 @ApiTags('Media')
 @Controller('/media')
@@ -37,7 +43,9 @@ export class MediaController {
   private storage = UploadFactory.createStorage();
   constructor(
     private _mediaService: MediaService,
-    private _subscriptionService: SubscriptionService
+    private _subscriptionService: SubscriptionService,
+    private _videoJobService: VideoJobService,
+    private _temporalService: TemporalService
   ) {}
 
   @Delete('/:id')
@@ -259,5 +267,61 @@ export class MediaController {
     @Param('type') type: string
   ) {
     return this._mediaService.generateVideoAllowed(org, type);
+  }
+
+  @Post('/ai-video')
+  async aiVideo(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Body() body: AiVideoDto
+  ) {
+    const validationError = validateVideoModeParams(body as any);
+    if (validationError) {
+      throw new HttpException(validationError, HttpStatus.BAD_REQUEST);
+    }
+
+    const credits = await this._subscriptionService.checkCredits(org, 'ai_videos');
+    if (process.env.STRIPE_PUBLISHABLE_KEY && credits.credits < body.numberOfVideos) {
+      throw new HttpException('Not enough video credits', HttpStatus.PAYMENT_REQUIRED);
+    }
+
+    const creditIds = await this._subscriptionService.createCredits(
+      org.id, 'ai_videos', body.numberOfVideos
+    );
+
+    const job = await this._videoJobService.create(org.id, user.id, body.mode, body, creditIds);
+
+    try {
+      await this._temporalService.client
+        .getRawClient()
+        ?.workflow.start('videoGenerationWorkflow', {
+          workflowId: `video_${job.id}`,
+          taskQueue: 'main',
+          args: [{ jobId: job.id, userId: user.id, orgId: org.id }],
+        });
+    } catch (err: any) {
+      await this._videoJobService.fail(job.id, 'Failed to start generation', creditIds);
+      throw new HttpException('Failed to start generation', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    return { jobId: job.id };
+  }
+
+  @Get('/ai-video/:jobId')
+  async aiVideoStatus(
+    @GetOrgFromRequest() org: Organization,
+    @Param('jobId') jobId: string
+  ) {
+    const job = await this._videoJobService.getById(jobId);
+    if (!job || job.organizationId !== org.id) {
+      throw new HttpException('Not found', HttpStatus.NOT_FOUND);
+    }
+    const ids = (job.resultMediaIds as string[]) || [];
+    const media = await Promise.all(ids.map((id) => this._mediaService.getMediaById(id)));
+    return {
+      status: job.status,
+      error: job.error,
+      media: media.filter(Boolean).map((m: any) => ({ id: m.id, path: m.path })),
+    };
   }
 }
