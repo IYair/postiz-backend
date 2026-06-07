@@ -998,6 +998,8 @@ model UserAiConfig {
   imageProvider String?
   textModel     String?
   imageModel    String?
+  videoProvider String?
+  videoModel    String?
   encryptedKeys Json
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
