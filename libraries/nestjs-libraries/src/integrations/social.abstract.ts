@@ -122,9 +122,22 @@ export abstract class SocialAbstract {
     try {
       value = await func();
     } catch (err) {
-      const handle = this.handleErrors(safeStringify(err), 200);
+      // Error objects (e.g. twitter-api-v2 ApiResponseError) keep their useful
+      // fields (`message`, `data`, `errors`) on non-enumerable props, so a plain
+      // safeStringify(err) collapses to "{}" and handleErrors can never classify
+      // it -> "Unknown Error". Flatten the meaningful fields into the payload so
+      // both the error matcher and the logs see the real provider response.
+      const rawError = safeStringify({
+        message: (err as any)?.message,
+        data: (err as any)?.data,
+        errors: (err as any)?.errors,
+        code: (err as any)?.code,
+        raw: safeStringify(err),
+      });
+      console.error('[runInConcurrent] provider call failed:', rawError);
+      const handle = this.handleErrors(rawError, 200);
       value = { err: true, value: 'Unknown Error', ...(handle || {}) };
-      globalErr = err;
+      globalErr = rawError;
     }
 
     if (value && value?.err && value?.value) {
