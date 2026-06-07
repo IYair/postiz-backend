@@ -283,4 +283,20 @@ export class SubscriptionRepository {
       },
     });
   }
+
+  async createCredits(orgId: string, type: string, count: number): Promise<string[]> {
+    const ids: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const row = await this._credits.model.credits.create({
+        data: { organizationId: orgId, credits: 1, type },
+      });
+      ids.push(row.id);
+    }
+    return ids;
+  }
+
+  async deleteCredits(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    await this._credits.model.credits.deleteMany({ where: { id: { in: ids } } });
+  }
 }

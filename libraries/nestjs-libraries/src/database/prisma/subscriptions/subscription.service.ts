@@ -247,6 +247,14 @@ export class SubscriptionService {
     };
   }
 
+  createCredits(orgId: string, type: string, count: number) {
+    return this._subscriptionRepository.createCredits(orgId, type, count);
+  }
+
+  refundCredits(ids: string[]) {
+    return this._subscriptionRepository.deleteCredits(ids);
+  }
+
   async addSubscription(orgId: string, userId: string, subscription: any) {
     await this._subscriptionRepository.setCustomerId(orgId, userId);
     return this.createOrUpdateSubscription(

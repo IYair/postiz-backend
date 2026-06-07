@@ -48,6 +48,8 @@ import { ErrorsService } from '@gitroom/nestjs-libraries/database/prisma/errors/
 import { AdminStatsRepository } from '@gitroom/nestjs-libraries/database/prisma/admin-stats/admin-stats.repository';
 import { AdminStatsService } from '@gitroom/nestjs-libraries/database/prisma/admin-stats/admin-stats.service';
 import { ImagePresetRepository } from '@gitroom/nestjs-libraries/database/prisma/organizations/image-preset.repository';
+import { VideoJobRepository } from '@gitroom/nestjs-libraries/database/prisma/video-jobs/video-job.repository';
+import { VideoJobService } from '@gitroom/nestjs-libraries/database/prisma/video-jobs/video-job.service';
 
 @Global()
 @Module({
@@ -105,6 +107,8 @@ import { ImagePresetRepository } from '@gitroom/nestjs-libraries/database/prisma
     ErrorsService,
     AdminStatsRepository,
     AdminStatsService,
+    VideoJobRepository,
+    VideoJobService,
   ],
   get exports() {
     return this.providers;
