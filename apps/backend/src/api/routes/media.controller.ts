@@ -280,6 +280,19 @@ export class MediaController {
       throw new HttpException(validationError, HttpStatus.BAD_REQUEST);
     }
 
+    const ALLOWED = new Set([
+      'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/heic', 'image/heif',
+    ]);
+    const allImages = [
+      body.startImage, body.endImage, ...(body.referenceImages || []),
+    ].filter(Boolean) as { mimeType: string }[];
+    if (allImages.some((img) => !ALLOWED.has(img.mimeType))) {
+      throw new HttpException(
+        'Unsupported image type. Allowed: png, jpeg, webp, gif, heic, heif',
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
     const credits = await this._subscriptionService.checkCredits(org, 'ai_videos');
     if (process.env.STRIPE_PUBLISHABLE_KEY && credits.credits < body.numberOfVideos) {
       throw new HttpException('Not enough video credits', HttpStatus.PAYMENT_REQUIRED);
@@ -291,14 +304,17 @@ export class MediaController {
 
     const job = await this._videoJobService.create(org.id, user.id, body.mode, body, creditIds);
 
+    const temporalClient = this._temporalService.client.getRawClient();
+    if (!temporalClient) {
+      await this._videoJobService.fail(job.id, 'Video generation service unavailable', creditIds);
+      throw new HttpException('Failed to start generation', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
     try {
-      await this._temporalService.client
-        .getRawClient()
-        ?.workflow.start('videoGenerationWorkflow', {
-          workflowId: `video_${job.id}`,
-          taskQueue: 'main',
-          args: [{ jobId: job.id, userId: user.id, orgId: org.id }],
-        });
+      await temporalClient.workflow.start('videoGenerationWorkflow', {
+        workflowId: `video_${job.id}`,
+        taskQueue: 'main',
+        args: [{ jobId: job.id, userId: user.id, orgId: org.id }],
+      });
     } catch (err: any) {
       await this._videoJobService.fail(job.id, 'Failed to start generation', creditIds);
       throw new HttpException('Failed to start generation', HttpStatus.INTERNAL_SERVER_ERROR);
