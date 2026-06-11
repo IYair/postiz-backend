@@ -8,7 +8,7 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-export type PostListStateFilter = 'all' | 'scheduled' | 'draft' | 'published';
+export type PostListStateFilter = 'all' | 'scheduled' | 'draft' | 'published' | 'error';
 
 export class GetPostsListDto {
   @IsOptional()
@@ -33,6 +33,6 @@ export class GetPostsListDto {
   search?: string;
 
   @IsOptional()
-  @IsIn(['all', 'scheduled', 'draft', 'published'])
+  @IsIn(['all', 'scheduled', 'draft', 'published', 'error'])
   state?: PostListStateFilter = 'all';
 }

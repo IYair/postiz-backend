@@ -70,9 +70,13 @@ Festividades: ${JSON.stringify(holidays.map((h) => ({ date: h.date, name: h.name
 
       const out = await provider.generateStructured(prompt, enrichSchema);
       return holidays.map((h) => {
-        const found = out.items.find((i: { date: string }) => i.date === h.date);
+        const found = out.items.find((i) => i.date === h.date);
         return found
-          ? { ...h, description: found.description, hashtags: found.hashtags }
+          ? {
+              ...h,
+              description: found.description ?? '',
+              hashtags: found.hashtags ?? [],
+            }
           : h;
       });
     } catch (e) {

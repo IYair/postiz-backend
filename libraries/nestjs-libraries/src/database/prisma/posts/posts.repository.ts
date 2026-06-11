@@ -235,6 +235,8 @@ export class PostsRepository {
         ? { state: State.DRAFT }
         : stateFilter === 'published'
         ? { state: State.PUBLISHED }
+        : stateFilter === 'error'
+        ? { state: State.ERROR }
         : {
             state: {
               in: [State.QUEUE, State.DRAFT, State.PUBLISHED, State.ERROR],
