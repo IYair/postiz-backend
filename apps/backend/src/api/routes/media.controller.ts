@@ -213,62 +213,6 @@ export class MediaController {
     );
   }
 
-  @Post('/:endpoint')
-  async uploadFile(
-    @GetOrgFromRequest() org: Organization,
-    @Req() req: Request,
-    @Res() res: Response,
-    @Param('endpoint') endpoint: string
-  ) {
-    const upload = await handleR2Upload(endpoint, req, res);
-    if (endpoint !== 'complete-multipart-upload') {
-      return upload;
-    }
-
-    // @ts-ignore
-    const name = upload.Location.split('/').pop();
-    const originalName = req.body?.file?.name;
-
-    const saveFile = await this._mediaService.saveFile(
-      org.id,
-      name,
-      // @ts-ignore
-      upload.Location,
-      originalName || undefined
-    );
-
-    res.status(200).json({ ...upload, saved: saveFile });
-  }
-
-  @Get('/')
-  getMedia(
-    @GetOrgFromRequest() org: Organization,
-    @Query('page') page: number,
-    @Query('search') search?: string
-  ) {
-    return this._mediaService.getMedia(org.id, page, search);
-  }
-
-  @Get('/video-options')
-  getVideos() {
-    return this._mediaService.getVideoOptions();
-  }
-
-  @Post('/video/function')
-  videoFunction(
-    @Body() body: VideoFunctionDto
-  ) {
-    return this._mediaService.videoFunction(body.identifier, body.functionName, body.params);
-  }
-
-  @Get('/generate-video/:type/allowed')
-  generateVideoAllowed(
-    @GetOrgFromRequest() org: Organization,
-    @Param('type') type: string
-  ) {
-    return this._mediaService.generateVideoAllowed(org, type);
-  }
-
   @Post('/ai-video')
   async aiVideo(
     @GetOrgFromRequest() org: Organization,
@@ -339,5 +283,61 @@ export class MediaController {
       error: job.error,
       media: media.filter(Boolean).map((m: any) => ({ id: m.id, path: m.path })),
     };
+  }
+
+  @Post('/:endpoint')
+  async uploadFile(
+    @GetOrgFromRequest() org: Organization,
+    @Req() req: Request,
+    @Res() res: Response,
+    @Param('endpoint') endpoint: string
+  ) {
+    const upload = await handleR2Upload(endpoint, req, res);
+    if (endpoint !== 'complete-multipart-upload') {
+      return upload;
+    }
+
+    // @ts-ignore
+    const name = upload.Location.split('/').pop();
+    const originalName = req.body?.file?.name;
+
+    const saveFile = await this._mediaService.saveFile(
+      org.id,
+      name,
+      // @ts-ignore
+      upload.Location,
+      originalName || undefined
+    );
+
+    res.status(200).json({ ...upload, saved: saveFile });
+  }
+
+  @Get('/')
+  getMedia(
+    @GetOrgFromRequest() org: Organization,
+    @Query('page') page: number,
+    @Query('search') search?: string
+  ) {
+    return this._mediaService.getMedia(org.id, page, search);
+  }
+
+  @Get('/video-options')
+  getVideos() {
+    return this._mediaService.getVideoOptions();
+  }
+
+  @Post('/video/function')
+  videoFunction(
+    @Body() body: VideoFunctionDto
+  ) {
+    return this._mediaService.videoFunction(body.identifier, body.functionName, body.params);
+  }
+
+  @Get('/generate-video/:type/allowed')
+  generateVideoAllowed(
+    @GetOrgFromRequest() org: Organization,
+    @Param('type') type: string
+  ) {
+    return this._mediaService.generateVideoAllowed(org, type);
   }
 }
