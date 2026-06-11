@@ -40,6 +40,20 @@ export class GoogleVeoAdapter implements VideoProvider {
 
     const params: any = { model: this.model, prompt, config };
 
+    // referenceImages y lastFrame son features de Veo 3.1+; con veo-3.0 la
+    // operacion termina "done" sin videos y sin razon clara. Fallar temprano.
+    const isVeo30 = this.model.startsWith('veo-3.0');
+    if (options.referenceImages?.length && isVeo30) {
+      throw new Error(
+        `Model ${this.model} does not support reference images (ingredients). Select Veo 3.1 in Settings → AI provider.`
+      );
+    }
+    if (options.endImage && isVeo30) {
+      throw new Error(
+        `Model ${this.model} does not support an end frame. Select Veo 3.1 in Settings → AI provider.`
+      );
+    }
+
     // referenceImages (ingredientes) es excluyente con image/lastFrame.
     if (options.referenceImages?.length) {
       config.referenceImages = options.referenceImages.map((r) => ({
@@ -68,7 +82,21 @@ export class GoogleVeoAdapter implements VideoProvider {
 
     const videos = operation.response?.generatedVideos ?? [];
     if (!videos.length) {
-      throw new Error('Veo returned no video URI');
+      // Cuando RAI filtra el contenido, la operacion termina "done" sin
+      // videos; la razon viene en raiMediaFilteredReasons.
+      const reasons = operation.response?.raiMediaFilteredReasons;
+      if (operation.response?.raiMediaFilteredCount || reasons?.length) {
+        throw new Error(
+          `Veo blocked the video by safety policy: ${
+            reasons?.join('; ') || 'no reason provided'
+          }`
+        );
+      }
+      throw new Error(
+        `Veo returned no video (response: ${JSON.stringify(
+          operation.response ?? {}
+        ).slice(0, 300)})`
+      );
     }
 
     const urls: string[] = [];

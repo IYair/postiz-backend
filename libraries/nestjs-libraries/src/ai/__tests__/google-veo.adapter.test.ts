@@ -98,4 +98,47 @@ describe('GoogleVeoAdapter', () => {
     const adapter = new GoogleVeoAdapter('k', 'm', fakeUpload as any, 0);
     await expect(adapter.generateVideo('x', { aspectRatio: 'auto' })).rejects.toThrow('quota exceeded');
   });
+
+  it('surfacea las razones RAI cuando el filtro de seguridad bloquea el video', async () => {
+    generateVideos.mockResolvedValue({ done: true, response: {
+      generatedVideos: [],
+      raiMediaFilteredCount: 1,
+      raiMediaFilteredReasons: ['Responsible AI practices: person/face generation'],
+    }});
+    const adapter = new GoogleVeoAdapter('k', 'm', fakeUpload as any, 0);
+    await expect(adapter.generateVideo('x', { aspectRatio: '16:9' })).rejects.toThrow(
+      'Veo blocked the video by safety policy: Responsible AI practices: person/face generation'
+    );
+  });
+
+  it('incluye el response en el error cuando no hay videos ni razones RAI', async () => {
+    generateVideos.mockResolvedValue({ done: true, response: { generatedVideos: [] } });
+    const adapter = new GoogleVeoAdapter('k', 'm', fakeUpload as any, 0);
+    await expect(adapter.generateVideo('x', { aspectRatio: '16:9' })).rejects.toThrow(
+      'Veo returned no video (response:'
+    );
+  });
+
+  it('rechaza referenceImages con modelos veo-3.0 sin llamar a la API', async () => {
+    const adapter = new GoogleVeoAdapter('k', 'veo-3.0-fast-generate-001', fakeUpload as any, 0);
+    await expect(
+      adapter.generateVideo('x', {
+        aspectRatio: '16:9',
+        referenceImages: [{ mimeType: 'image/png', base64: 'AAA' }],
+      })
+    ).rejects.toThrow('does not support reference images');
+    expect(generateVideos).not.toHaveBeenCalled();
+  });
+
+  it('rechaza endImage con modelos veo-3.0 sin llamar a la API', async () => {
+    const adapter = new GoogleVeoAdapter('k', 'veo-3.0-generate-001', fakeUpload as any, 0);
+    await expect(
+      adapter.generateVideo('x', {
+        aspectRatio: '16:9',
+        startImage: { mimeType: 'image/png', base64: 'AAA' },
+        endImage: { mimeType: 'image/png', base64: 'BBB' },
+      })
+    ).rejects.toThrow('does not support an end frame');
+    expect(generateVideos).not.toHaveBeenCalled();
+  });
 });
