@@ -73,9 +73,18 @@ export class MediaService {
     if (!resp.ok) {
       throw new Error('Failed to download media for reference');
     }
+    const MAX_REFERENCE_BYTES = 4 * 1024 * 1024; // paridad con fetchAsReference
+    const advertised = Number(resp.headers.get('content-length') ?? '');
+    if (Number.isFinite(advertised) && advertised > MAX_REFERENCE_BYTES) {
+      throw new Error('Media reference too large');
+    }
+    const rawContentType = resp.headers.get('content-type');
+    if (!rawContentType) {
+      throw new Error('Missing content-type for media reference');
+    }
     const buffer = Buffer.from(await resp.arrayBuffer());
     return {
-      mimeType: resp.headers.get('content-type') || 'image/png',
+      mimeType: rawContentType.split(';')[0].trim().toLowerCase(),
       base64: buffer.toString('base64'),
     };
   }

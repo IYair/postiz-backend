@@ -291,7 +291,15 @@ export class MediaController {
     @GetOrgFromRequest() org: Organization,
     @Body() body: MediaReferenceDto
   ) {
-    const ref = await this._mediaService.mediaAsReference(org.id, body.mediaId);
+    let ref: { mimeType: string; base64: string } | null;
+    try {
+      ref = await this._mediaService.mediaAsReference(org.id, body.mediaId);
+    } catch (e) {
+      throw new HttpException(
+        'Failed to process media reference',
+        HttpStatus.BAD_GATEWAY
+      );
+    }
     if (!ref) {
       throw new HttpException('Not found', HttpStatus.NOT_FOUND);
     }
