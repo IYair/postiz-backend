@@ -257,8 +257,9 @@ export class PostsRepository {
         },
       ],
       ...stateAndDate,
-      // Searching spans all dates; otherwise non-published states stay upcoming.
-      ...(query.search
+      // Searching and kanban-style global views span all dates; otherwise
+      // non-published states stay upcoming for the regular list view.
+      ...(query.search || query.allDates
         ? {}
         : stateFilter === 'published'
         ? {}

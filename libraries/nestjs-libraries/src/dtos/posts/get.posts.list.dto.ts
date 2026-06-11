@@ -5,6 +5,7 @@ import {
   Min,
   Max,
   IsIn,
+  IsBoolean,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -35,4 +36,9 @@ export class GetPostsListDto {
   @IsOptional()
   @IsIn(['all', 'scheduled', 'draft', 'published', 'error'])
   state?: PostListStateFilter = 'all';
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  allDates?: boolean = false;
 }
