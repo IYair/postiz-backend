@@ -60,7 +60,7 @@ FROM node:${NODE_VERSION} AS runner
 ARG PNPM_VERSION
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      nginx tini ca-certificates openssl curl \
+      nginx tini ca-certificates openssl curl ffmpeg \
       libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libjpeg62-turbo libgif7 librsvg2-2 \
  && rm -rf /var/lib/apt/lists/*
 
