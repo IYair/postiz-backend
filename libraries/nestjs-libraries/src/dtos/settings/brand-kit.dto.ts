@@ -30,4 +30,9 @@ export class BrandKitDto {
   @IsString()
   @MaxLength(300)
   brandTypography?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  brandVoice?: string | null;
 }

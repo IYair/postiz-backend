@@ -153,6 +153,7 @@ export class OrganizationService {
       brandLogoUrl?: string | null;
       brandColors?: string | null;
       brandTypography?: string | null;
+      brandVoice?: string | null;
     }
   ) {
     return this._organizationRepository.updateBrandKit(orgId, data);

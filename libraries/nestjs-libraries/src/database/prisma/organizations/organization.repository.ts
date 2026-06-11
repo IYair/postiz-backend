@@ -450,6 +450,7 @@ export class OrganizationRepository {
         brandLogoUrl: true,
         brandColors: true,
         brandTypography: true,
+        brandVoice: true,
       },
     });
   }
@@ -461,6 +462,7 @@ export class OrganizationRepository {
       brandLogoUrl?: string | null;
       brandColors?: string | null;
       brandTypography?: string | null;
+      brandVoice?: string | null;
     }
   ) {
     return this._organization.model.organization.update({
@@ -470,6 +472,7 @@ export class OrganizationRepository {
         brandLogoUrl: data.brandLogoUrl ?? null,
         brandColors: data.brandColors ?? null,
         brandTypography: data.brandTypography ?? null,
+        brandVoice: data.brandVoice ?? null,
       },
     });
   }
