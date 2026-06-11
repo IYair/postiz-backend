@@ -56,9 +56,21 @@ async function start() {
     })
   );
 
-  app.use(['/copilot/{*splat}', '/posts'], (req: any, res: any, next: any) => {
-    json({ limit: '50mb' })(req, res, next);
-  });
+  app.use(
+    [
+      '/copilot/{*splat}',
+      '/posts',
+      // Endpoints de media que reciben imagenes base64 en el body JSON
+      // (startImage/endImage/referenceImages); el default de body-parser
+      // es 100kb y revienta con PayloadTooLargeError.
+      '/media/ai-video',
+      '/media/generate-image',
+      '/media/generate-image-with-prompt',
+    ],
+    (req: any, res: any, next: any) => {
+      json({ limit: '50mb' })(req, res, next);
+    }
+  );
 
   app.use(cookieParser());
   app.use(compression());
