@@ -25,6 +25,7 @@ model Organization {
   brandLogoUrl        String?              @db.VarChar(500)
   brandColors         String?              @db.VarChar(500)
   brandTypography     String?              @db.VarChar(300)
+  brandVoice          String?              @db.VarChar(1000)
   autoPost            AutoPost[]
   Comments            Comments[]
   credits             Credits[]

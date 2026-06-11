@@ -38,6 +38,10 @@ import { OAuthController, OAuthAuthorizedController } from '@gitroom/backend/api
 import { AnnouncementsController } from '@gitroom/backend/api/routes/announcements.controller';
 import { AiConfigController } from '@gitroom/backend/api/routes/ai-config.controller';
 import { AdminController } from '@gitroom/backend/api/routes/admin.controller';
+import { ToolsController } from '@gitroom/backend/api/routes/tools.controller';
+import { ToolsService } from '@gitroom/nestjs-libraries/tools/tools.service';
+import { HolidaysService } from '@gitroom/nestjs-libraries/tools/holidays/holidays.service';
+import { OembedService } from '@gitroom/nestjs-libraries/tools/oembed.service';
 import { AuthProviderManager } from '@gitroom/backend/services/auth/providers/providers.manager';
 import { GithubProvider } from '@gitroom/backend/services/auth/providers/github.provider';
 import { GoogleProvider } from '@gitroom/backend/services/auth/providers/google.provider';
@@ -66,6 +70,7 @@ const authenticatedController = [
   AnnouncementsController,
   AiConfigController,
   AdminController,
+  ToolsController,
 ];
 @Module({
   imports: [UploadModule],
@@ -98,6 +103,9 @@ const authenticatedController = [
     FarcasterProvider,
     WalletProvider,
     OauthProvider,
+    ToolsService,
+    HolidaysService,
+    OembedService,
   ],
   get exports() {
     return [...this.imports, ...this.providers];
