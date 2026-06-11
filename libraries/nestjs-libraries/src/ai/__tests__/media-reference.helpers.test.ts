@@ -12,6 +12,7 @@ import {
 function fakeProcess() {
   const proc: any = new EventEmitter();
   proc.stdout = new EventEmitter();
+  proc.stderr = { resume: vi.fn() };
   proc.kill = vi.fn();
   return proc;
 }
@@ -68,5 +69,20 @@ describe('extractLastFrame', () => {
     const promise = extractLastFrame('https://cdn.x.com/clip.mp4');
     proc.emit('error', new Error('spawn ffmpeg ENOENT'));
     await expect(promise).rejects.toThrow('ENOENT');
+  });
+
+  it('rechaza y mata el proceso al expirar el timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const proc = fakeProcess();
+      spawnMock.mockReturnValue(proc);
+      const promise = extractLastFrame('https://cdn.x.com/clip.mp4', 5_000);
+      vi.advanceTimersByTime(5_001);
+      proc.emit('close', null); // tras SIGKILL el proceso cierra
+      await expect(promise).rejects.toThrow('timed out');
+      expect(proc.kill).toHaveBeenCalledWith('SIGKILL');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
