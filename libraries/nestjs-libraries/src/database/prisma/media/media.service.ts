@@ -83,6 +83,9 @@ export class MediaService {
       throw new Error('Missing content-type for media reference');
     }
     const buffer = Buffer.from(await resp.arrayBuffer());
+    if (buffer.byteLength > MAX_REFERENCE_BYTES) {
+      throw new Error('Media reference too large');
+    }
     return {
       mimeType: rawContentType.split(';')[0].trim().toLowerCase(),
       base64: buffer.toString('base64'),
