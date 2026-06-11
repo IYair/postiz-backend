@@ -33,6 +33,7 @@ import { SaveMediaInformationDto } from '@gitroom/nestjs-libraries/dtos/media/sa
 import { VideoDto } from '@gitroom/nestjs-libraries/dtos/videos/video.dto';
 import { VideoFunctionDto } from '@gitroom/nestjs-libraries/dtos/videos/video.function.dto';
 import { AiVideoDto } from '@gitroom/nestjs-libraries/dtos/videos/ai-video.dto';
+import { MediaReferenceDto } from '@gitroom/nestjs-libraries/dtos/media/media-reference.dto';
 import { VideoJobService } from '@gitroom/nestjs-libraries/database/prisma/video-jobs/video-job.service';
 import { TemporalService } from 'nestjs-temporal-core';
 import { validateVideoModeParams } from '@gitroom/nestjs-libraries/ai/video/ai-video.helpers';
@@ -283,6 +284,18 @@ export class MediaController {
       error: job.error,
       media: media.filter(Boolean).map((m: any) => ({ id: m.id, path: m.path })),
     };
+  }
+
+  @Post('/reference-from-media')
+  async referenceFromMedia(
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: MediaReferenceDto
+  ) {
+    const ref = await this._mediaService.mediaAsReference(org.id, body.mediaId);
+    if (!ref) {
+      throw new HttpException('Not found', HttpStatus.NOT_FOUND);
+    }
+    return ref;
   }
 
   @Post('/:endpoint')
