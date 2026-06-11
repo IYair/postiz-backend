@@ -48,8 +48,10 @@ export class MediaService {
 
   // Convierte una media propia de la org en una referencia { mimeType, base64 }.
   // Para videos extrae el ULTIMO frame (encadenado de clips del editor de nodos).
-  // No aplica el guard SSRF de fetchAsReference: la URL viene de nuestra DB
-  // (media.path), y el guard rechazaria http://localhost en dev.
+  // No aplica el guard SSRF completo de fetchAsReference (isSafePublicHttpsUrl
+  // rechazaria http://localhost en dev): la URL viene de nuestra DB (media.path).
+  // Defense-in-depth: si se valida protocolo http(s) (protege tambien a ffmpeg
+  // de file:///concat:), no se siguen redirects y el fetch tiene timeout.
   async mediaAsReference(
     orgId: string,
     mediaId: string
@@ -58,10 +60,16 @@ export class MediaService {
     if (!media || media.organizationId !== orgId) {
       return null;
     }
+    if (!/^https?:\/\//i.test(media.path)) {
+      throw new Error('Unsupported media URL protocol');
+    }
     if (isVideoPath(media.path)) {
       return extractLastFrame(media.path);
     }
-    const resp = await fetch(media.path);
+    const resp = await fetch(media.path, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(30_000),
+    });
     if (!resp.ok) {
       throw new Error('Failed to download media for reference');
     }
