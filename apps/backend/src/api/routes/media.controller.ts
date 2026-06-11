@@ -33,6 +33,7 @@ import { SaveMediaInformationDto } from '@gitroom/nestjs-libraries/dtos/media/sa
 import { VideoDto } from '@gitroom/nestjs-libraries/dtos/videos/video.dto';
 import { VideoFunctionDto } from '@gitroom/nestjs-libraries/dtos/videos/video.function.dto';
 import { AiVideoDto } from '@gitroom/nestjs-libraries/dtos/videos/ai-video.dto';
+import { MediaReferenceDto } from '@gitroom/nestjs-libraries/dtos/media/media-reference.dto';
 import { VideoJobService } from '@gitroom/nestjs-libraries/database/prisma/video-jobs/video-job.service';
 import { TemporalService } from 'nestjs-temporal-core';
 import { validateVideoModeParams } from '@gitroom/nestjs-libraries/ai/video/ai-video.helpers';
@@ -213,62 +214,6 @@ export class MediaController {
     );
   }
 
-  @Post('/:endpoint')
-  async uploadFile(
-    @GetOrgFromRequest() org: Organization,
-    @Req() req: Request,
-    @Res() res: Response,
-    @Param('endpoint') endpoint: string
-  ) {
-    const upload = await handleR2Upload(endpoint, req, res);
-    if (endpoint !== 'complete-multipart-upload') {
-      return upload;
-    }
-
-    // @ts-ignore
-    const name = upload.Location.split('/').pop();
-    const originalName = req.body?.file?.name;
-
-    const saveFile = await this._mediaService.saveFile(
-      org.id,
-      name,
-      // @ts-ignore
-      upload.Location,
-      originalName || undefined
-    );
-
-    res.status(200).json({ ...upload, saved: saveFile });
-  }
-
-  @Get('/')
-  getMedia(
-    @GetOrgFromRequest() org: Organization,
-    @Query('page') page: number,
-    @Query('search') search?: string
-  ) {
-    return this._mediaService.getMedia(org.id, page, search);
-  }
-
-  @Get('/video-options')
-  getVideos() {
-    return this._mediaService.getVideoOptions();
-  }
-
-  @Post('/video/function')
-  videoFunction(
-    @Body() body: VideoFunctionDto
-  ) {
-    return this._mediaService.videoFunction(body.identifier, body.functionName, body.params);
-  }
-
-  @Get('/generate-video/:type/allowed')
-  generateVideoAllowed(
-    @GetOrgFromRequest() org: Organization,
-    @Param('type') type: string
-  ) {
-    return this._mediaService.generateVideoAllowed(org, type);
-  }
-
   @Post('/ai-video')
   async aiVideo(
     @GetOrgFromRequest() org: Organization,
@@ -339,5 +284,81 @@ export class MediaController {
       error: job.error,
       media: media.filter(Boolean).map((m: any) => ({ id: m.id, path: m.path })),
     };
+  }
+
+  @Post('/reference-from-media')
+  async referenceFromMedia(
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: MediaReferenceDto
+  ) {
+    let ref: { mimeType: string; base64: string } | null;
+    try {
+      ref = await this._mediaService.mediaAsReference(org.id, body.mediaId);
+    } catch (e) {
+      throw new HttpException(
+        'Failed to process media reference',
+        HttpStatus.BAD_GATEWAY
+      );
+    }
+    if (!ref) {
+      throw new HttpException('Not found', HttpStatus.NOT_FOUND);
+    }
+    return ref;
+  }
+
+  @Post('/:endpoint')
+  async uploadFile(
+    @GetOrgFromRequest() org: Organization,
+    @Req() req: Request,
+    @Res() res: Response,
+    @Param('endpoint') endpoint: string
+  ) {
+    const upload = await handleR2Upload(endpoint, req, res);
+    if (endpoint !== 'complete-multipart-upload') {
+      return upload;
+    }
+
+    // @ts-ignore
+    const name = upload.Location.split('/').pop();
+    const originalName = req.body?.file?.name;
+
+    const saveFile = await this._mediaService.saveFile(
+      org.id,
+      name,
+      // @ts-ignore
+      upload.Location,
+      originalName || undefined
+    );
+
+    res.status(200).json({ ...upload, saved: saveFile });
+  }
+
+  @Get('/')
+  getMedia(
+    @GetOrgFromRequest() org: Organization,
+    @Query('page') page: number,
+    @Query('search') search?: string
+  ) {
+    return this._mediaService.getMedia(org.id, page, search);
+  }
+
+  @Get('/video-options')
+  getVideos() {
+    return this._mediaService.getVideoOptions();
+  }
+
+  @Post('/video/function')
+  videoFunction(
+    @Body() body: VideoFunctionDto
+  ) {
+    return this._mediaService.videoFunction(body.identifier, body.functionName, body.params);
+  }
+
+  @Get('/generate-video/:type/allowed')
+  generateVideoAllowed(
+    @GetOrgFromRequest() org: Organization,
+    @Param('type') type: string
+  ) {
+    return this._mediaService.generateVideoAllowed(org, type);
   }
 }

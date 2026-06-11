@@ -13,6 +13,10 @@ import {
   SubscriptionException,
 } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 import { isSafePublicHttpsUrl } from '@gitroom/nestjs-libraries/dtos/webhooks/webhook.url.validator';
+import {
+  isVideoPath,
+  extractLastFrame,
+} from '@gitroom/nestjs-libraries/ai/video/media-reference.helpers';
 
 const ALLOWED_REFERENCE_MIME_TYPES = new Set([
   'image/png',
@@ -40,6 +44,52 @@ export class MediaService {
 
   getMediaById(id: string) {
     return this._mediaRepository.getMediaById(id);
+  }
+
+  // Convierte una media propia de la org en una referencia { mimeType, base64 }.
+  // Para videos extrae el ULTIMO frame (encadenado de clips del editor de nodos).
+  // No aplica el guard SSRF completo de fetchAsReference (isSafePublicHttpsUrl
+  // rechazaria http://localhost en dev): la URL viene de nuestra DB (media.path).
+  // Defense-in-depth: si se valida protocolo http(s) (protege tambien a ffmpeg
+  // de file:///concat:), no se siguen redirects y el fetch tiene timeout.
+  async mediaAsReference(
+    orgId: string,
+    mediaId: string
+  ): Promise<{ mimeType: string; base64: string } | null> {
+    const media = await this._mediaRepository.getMediaById(mediaId);
+    if (!media || media.organizationId !== orgId) {
+      return null;
+    }
+    if (!/^https?:\/\//i.test(media.path)) {
+      throw new Error('Unsupported media URL protocol');
+    }
+    if (isVideoPath(media.path)) {
+      return extractLastFrame(media.path);
+    }
+    const resp = await fetch(media.path, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!resp.ok) {
+      throw new Error('Failed to download media for reference');
+    }
+    const MAX_REFERENCE_BYTES = 4 * 1024 * 1024; // paridad con fetchAsReference
+    const advertised = Number(resp.headers.get('content-length') ?? '');
+    if (Number.isFinite(advertised) && advertised > MAX_REFERENCE_BYTES) {
+      throw new Error('Media reference too large');
+    }
+    const rawContentType = resp.headers.get('content-type');
+    if (!rawContentType) {
+      throw new Error('Missing content-type for media reference');
+    }
+    const buffer = Buffer.from(await resp.arrayBuffer());
+    if (buffer.byteLength > MAX_REFERENCE_BYTES) {
+      throw new Error('Media reference too large');
+    }
+    return {
+      mimeType: rawContentType.split(';')[0].trim().toLowerCase(),
+      base64: buffer.toString('base64'),
+    };
   }
 
   async generateImage(
