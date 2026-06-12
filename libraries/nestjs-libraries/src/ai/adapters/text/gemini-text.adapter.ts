@@ -1,6 +1,7 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { TextProvider, TextOptions, ChatMessage } from '../../ai.interfaces';
 import { ZodSchema } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
 export class GeminiTextAdapter implements TextProvider {
   private genAI: GoogleGenerativeAI;
@@ -22,15 +23,52 @@ export class GeminiTextAdapter implements TextProvider {
   }
 
   async generateStructured<T>(prompt: string, schema: ZodSchema<T>): Promise<T> {
+    const jsonSchema = zodToJsonSchema(schema, { target: 'jsonSchema7' });
     const model = this.genAI.getGenerativeModel({
       model: this.model,
-      generationConfig: { responseMimeType: 'application/json' },
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: this.convertToGeminiSchema(jsonSchema as any),
+      },
     });
     const result = await model.generateContent(
       `${prompt}\n\nRespond with valid JSON matching this schema. No extra text.`
     );
     const parsed = JSON.parse(result.response.text());
     return schema.parse(parsed);
+  }
+
+  private convertToGeminiSchema(jsonSchema: any): any {
+    if (jsonSchema.type === 'object' && jsonSchema.properties) {
+      const properties: Record<string, any> = {};
+      for (const [key, value] of Object.entries(jsonSchema.properties)) {
+        properties[key] = this.convertToGeminiSchema(value as any);
+      }
+      return {
+        type: SchemaType.OBJECT,
+        properties,
+        required: jsonSchema.required || Object.keys(properties),
+      };
+    }
+    if (jsonSchema.type === 'array' && jsonSchema.items) {
+      return {
+        type: SchemaType.ARRAY,
+        items: this.convertToGeminiSchema(jsonSchema.items),
+      };
+    }
+    if (jsonSchema.type === 'string') {
+      return { type: SchemaType.STRING };
+    }
+    if (jsonSchema.type === 'number') {
+      return { type: SchemaType.NUMBER };
+    }
+    if (jsonSchema.type === 'integer') {
+      return { type: SchemaType.INTEGER };
+    }
+    if (jsonSchema.type === 'boolean') {
+      return { type: SchemaType.BOOLEAN };
+    }
+    return { type: SchemaType.STRING };
   }
 
   async generateChat(messages: ChatMessage[], options?: TextOptions): Promise<string> {
