@@ -23,6 +23,30 @@ import { XDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/x.
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
 
+const X_LONG_POST_LIMIT = 25000;
+const X_PREMIUM_SUBSCRIPTIONS = ['Basic', 'Premium', 'PremiumPlus'];
+
+const hasXPremiumSubscription = (additionalSettings?: any) => {
+  if (Array.isArray(additionalSettings)) {
+    const subscriptionType = additionalSettings.find(
+      (p: any) => p?.title === 'Subscription Type'
+    )?.value;
+
+    if (typeof subscriptionType === 'string') {
+      return X_PREMIUM_SUBSCRIPTIONS.includes(subscriptionType);
+    }
+
+    return !!additionalSettings.find((p: any) => p?.title === 'Verified')
+      ?.value;
+  }
+
+  if (typeof additionalSettings === 'string') {
+    return X_PREMIUM_SUBSCRIPTIONS.includes(additionalSettings);
+  }
+
+  return !!additionalSettings;
+};
+
 @Rules(
   `X can have maximum 4 pictures, or maximum one video, it can also be without attachments ${
     process.env.STRIP_LINKS_FROM_X_POSTS
@@ -44,12 +68,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
   dto = XDto;
 
   maxLength(additionalSettings?: any) {
-    // Accepts either the parsed additionalSettings array (from validation) or a
-    // plain boolean (legacy callers). "Verified" => premium => higher limit.
-    const isTwitterPremium = Array.isArray(additionalSettings)
-      ? !!additionalSettings.find((p: any) => p?.title === 'Verified')?.value
-      : !!additionalSettings;
-    return isTwitterPremium ? 4000 : 280;
+    return hasXPremiumSubscription(additionalSettings) ? X_LONG_POST_LIMIT : 280;
   }
 
   override handleErrors(body: string):
@@ -329,12 +348,20 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     );
 
     const {
-      data: { username, verified, profile_image_url, name, id },
+      data: {
+        username,
+        verified,
+        subscription_type,
+        profile_image_url,
+        name,
+        id,
+      },
     } = await client.v2.me({
       'user.fields': [
         'username',
         'verified',
         'verified_type',
+        'subscription_type',
         'profile_image_url',
         'name',
       ],
@@ -351,9 +378,15 @@ export class XProvider extends SocialAbstract implements SocialProvider {
       additionalSettings: [
         {
           title: 'Verified',
-          description: 'Is this a verified user? (Premium)',
+          description: 'Is this a verified user?',
           type: 'checkbox' as const,
           value: verified,
+        },
+        {
+          title: 'Subscription Type',
+          description: 'X Premium subscription tier for long posts',
+          type: 'text' as const,
+          value: subscription_type || 'None',
         },
       ],
     };
