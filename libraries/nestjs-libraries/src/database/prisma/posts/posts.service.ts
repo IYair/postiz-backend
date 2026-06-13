@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   ValidationPipe,
 } from '@nestjs/common';
 import { PostsRepository } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.repository';
@@ -17,6 +18,7 @@ import {
 } from '@prisma/client';
 import { GetPostsDto } from '@gitroom/nestjs-libraries/dtos/posts/get.posts.dto';
 import { GetPostsListDto } from '@gitroom/nestjs-libraries/dtos/posts/get.posts.list.dto';
+import { ChangePostGroupStatusDto } from '@gitroom/nestjs-libraries/dtos/posts/change.post.group.status.dto';
 import { shuffle } from 'lodash';
 import { CreateGeneratedPostsDto } from '@gitroom/nestjs-libraries/dtos/generator/create.generated.posts.dto';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
@@ -695,7 +697,8 @@ export class PostsService {
     taskQueue: string,
     postId: string,
     orgId: string,
-    state: State
+    state: State,
+    postNow = false
   ) {
     try {
       const workflows = this._temporalService.client
@@ -735,6 +738,7 @@ export class PostsService {
               taskQueue: taskQueue,
               postId: postId,
               organizationId: orgId,
+              postNow,
             },
           ],
           typedSearchAttributes: new TypedSearchAttributes([
@@ -964,6 +968,111 @@ export class PostsService {
     } catch (err) {}
 
     return { id, state };
+  }
+
+  private getTaskQueueFromProvider(providerIdentifier: string) {
+    return providerIdentifier.split('-')[0].toLowerCase();
+  }
+
+  async changeGroupStatusForKanban(
+    orgId: string,
+    group: string,
+    body: ChangePostGroupStatusDto
+  ) {
+    const posts = await this._postRepository.getPostsByGroup(orgId, group);
+
+    if (!posts.length) {
+      throw new NotFoundException('Post group not found');
+    }
+
+    const rootPosts = posts.filter((post) => !post.parentPostId);
+    const roots = rootPosts.length ? rootPosts : [posts[0]];
+    const rootStates = new Set(roots.map((post) => post.state));
+
+    if (rootStates.has('PUBLISHED')) {
+      throw new BadRequestException('Published posts cannot be moved from Kanban');
+    }
+
+    if (body.target === 'draft') {
+      await this._postRepository.updateGroupWorkflowState(orgId, group, {
+        state: 'DRAFT',
+        clearRelease: true,
+        clearError: true,
+      });
+
+      await Promise.all(
+        roots.map((post) =>
+          this.startWorkflow(
+            this.getTaskQueueFromProvider(post.integration.providerIdentifier),
+            post.id,
+            orgId,
+            'DRAFT',
+            false
+          )
+        )
+      );
+
+      return { ok: true, group, state: 'DRAFT' as const };
+    }
+
+    if (body.target === 'scheduled') {
+      if (!body.date || !dayjs(body.date).isValid() || !dayjs(body.date).isAfter(dayjs())) {
+        throw new BadRequestException('A future date is required to schedule this group');
+      }
+
+      const publishDate = dayjs(body.date).toDate();
+      await this._postRepository.updateGroupWorkflowState(orgId, group, {
+        state: 'QUEUE',
+        publishDate,
+        clearRelease: true,
+        clearError: true,
+      });
+
+      await Promise.all(
+        roots.map((post) =>
+          this.startWorkflow(
+            this.getTaskQueueFromProvider(post.integration.providerIdentifier),
+            post.id,
+            orgId,
+            'QUEUE',
+            false
+          )
+        )
+      );
+
+      return {
+        ok: true,
+        group,
+        state: 'QUEUE' as const,
+        publishDate: dayjs(publishDate).utc().toISOString(),
+      };
+    }
+
+    if (body.target === 'publish_now') {
+      const publishDate = dayjs().toDate();
+      await this._postRepository.updateGroupWorkflowState(orgId, group, {
+        state: 'QUEUE',
+        publishDate,
+        clearRelease: true,
+        clearError: true,
+      });
+
+      await Promise.all(
+        roots.map((post) =>
+          this.startWorkflow(
+            this.getTaskQueueFromProvider(post.integration.providerIdentifier),
+            post.id,
+            orgId,
+            'QUEUE',
+            true
+          )
+        )
+      );
+
+      return { ok: true, group, state: 'QUEUE' as const, publishingNow: true };
+    }
+
+    throw new BadRequestException('Unsupported Kanban status target');
   }
 
   async changeDate(

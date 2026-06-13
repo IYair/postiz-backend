@@ -397,6 +397,31 @@ export class PostsRepository {
     });
   }
 
+  updateGroupWorkflowState(
+    orgId: string,
+    group: string,
+    data: {
+      state?: State;
+      publishDate?: Date;
+      clearRelease?: boolean;
+      clearError?: boolean;
+    }
+  ) {
+    return this._post.model.post.updateMany({
+      where: {
+        organizationId: orgId,
+        group,
+        deletedAt: null,
+      },
+      data: {
+        ...(data.state ? { state: data.state } : {}),
+        ...(data.publishDate ? { publishDate: data.publishDate } : {}),
+        ...(data.clearRelease ? { releaseId: null, releaseURL: null } : {}),
+        ...(data.clearError ? { error: null } : {}),
+      },
+    });
+  }
+
   getPost(
     id: string,
     includeIntegration = false,

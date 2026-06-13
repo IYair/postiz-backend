@@ -5,6 +5,7 @@ import {
   Get,
   HttpException,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -15,6 +16,7 @@ import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.reque
 import { Organization, User } from '@prisma/client';
 import { GetPostsDto } from '@gitroom/nestjs-libraries/dtos/posts/get.posts.dto';
 import { GetPostsListDto } from '@gitroom/nestjs-libraries/dtos/posts/get.posts.list.dto';
+import { ChangePostGroupStatusDto } from '@gitroom/nestjs-libraries/dtos/posts/change.post.group.status.dto';
 import { CheckPolicies } from '@gitroom/backend/services/auth/permissions/permissions.ability';
 import { ApiTags } from '@nestjs/swagger';
 import { GeneratorDto } from '@gitroom/nestjs-libraries/dtos/generator/generator.dto';
@@ -156,6 +158,15 @@ export class PostsController {
       throw new HttpException('Forbidden', 403);
     }
     return this._postsService.getPostGroupDebugExport(org.id, group);
+  }
+
+  @Patch('/group/:group/status')
+  changeGroupStatusForKanban(
+    @GetOrgFromRequest() org: Organization,
+    @Param('group') group: string,
+    @Body() body: ChangePostGroupStatusDto
+  ) {
+    return this._postsService.changeGroupStatusForKanban(org.id, group, body);
   }
 
   @Get('/group/:group')
