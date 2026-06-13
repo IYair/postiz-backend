@@ -15,6 +15,7 @@ import { PostResponse } from '@gitroom/nestjs-libraries/integrations/social/soci
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { TypedSearchAttributes } from '@temporalio/common';
 import { postId as postIdSearchParam } from '@gitroom/nestjs-libraries/temporal/temporal.search.attribute';
+import { getNotificationImage } from './notification-image';
 
 const proxyTaskQueue = (taskQueue: string) => {
   return proxyActivities<PostActivity>({
@@ -210,7 +211,10 @@ export async function postWorkflowV105({
               post.integration.providerIdentifier
             )} at ${postsResults[0].releaseURL}`,
             true,
-            true
+            true,
+            'success',
+            postsResults[0].releaseURL,
+            getNotificationImage(post.image)
           );
         }
 
