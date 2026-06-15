@@ -18,7 +18,6 @@ import { Integration } from '@prisma/client';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
 import {
   buildTikTokVideoFileUploadSourceInfo,
-  getTikTokPrivacyLevel,
   getTikTokVideoUploadChunks,
 } from '@gitroom/nestjs-libraries/integrations/social/tiktok.upload';
 
@@ -498,9 +497,8 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
             ? { title: firstPost.message }
             : {}),
           ...(isPhoto ? { description: firstPost.message } : {}),
-          privacy_level: getTikTokPrivacyLevel(
-            firstPost.settings.privacy_level
-          ),
+          privacy_level:
+            firstPost.settings.privacy_level || 'PUBLIC_TO_EVERYONE',
           ...(isPhoto
             ? {}
             : { disable_duet: !firstPost.settings.duet || false }),

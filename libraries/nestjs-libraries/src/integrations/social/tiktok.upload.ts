@@ -1,13 +1,5 @@
 const TIKTOK_MAX_CHUNK_SIZE = 64 * 1024 * 1024;
 
-export function getTikTokDefaultPrivacyLevel() {
-  return 'SELF_ONLY' as const;
-}
-
-export function getTikTokPrivacyLevel(_requestedPrivacy?: string) {
-  return getTikTokDefaultPrivacyLevel();
-}
-
 export function getTikTokVideoChunkSize(videoSize: number) {
   return Math.min(videoSize, TIKTOK_MAX_CHUNK_SIZE);
 }
