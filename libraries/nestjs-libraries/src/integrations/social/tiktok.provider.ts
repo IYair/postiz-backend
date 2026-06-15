@@ -16,6 +16,10 @@ import { timer } from '@gitroom/helpers/utils/timer';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
 import { Integration } from '@prisma/client';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import {
+  buildTikTokVideoFileUploadSourceInfo,
+  getTikTokVideoUploadChunks,
+} from '@gitroom/nestjs-libraries/integrations/social/tiktok.upload';
 
 @Rules(
   'TikTok can have one video or one picture or multiple pictures, it cannot be without an attachment'
@@ -561,6 +565,46 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
+  private async fetchTikTokVideoBuffer(videoUrl: string) {
+    const response = await fetch(videoUrl);
+    if (!response.ok) {
+      throw new BadBody(
+        'tiktok-video-download',
+        await response.text(),
+        videoUrl,
+        'Failed to download video before uploading to TikTok'
+      );
+    }
+
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  private async uploadTikTokVideoFile(uploadUrl: string, videoBuffer: Buffer) {
+    for (const { start, end } of getTikTokVideoUploadChunks(
+      videoBuffer.length
+    )) {
+      const chunk = videoBuffer.subarray(start, end + 1);
+      const response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'video/mp4',
+          'Content-Length': String(chunk.length),
+          'Content-Range': `bytes ${start}-${end}/${videoBuffer.length}`,
+        },
+        body: chunk as any,
+      });
+
+      if (!response.ok) {
+        throw new BadBody(
+          'tiktok-file-upload',
+          await response.text(),
+          '',
+          'Failed to upload video file to TikTok'
+        );
+      }
+    }
+  }
+
   async post(
     id: string,
     accessToken: string,
@@ -569,13 +613,19 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
   ): Promise<PostResponse[]> {
     const [firstPost] = postDetails;
     const isPhoto = !hasExtension(firstPost?.media?.[0]?.path, 'mp4');
+    const videoBuffer = isPhoto
+      ? undefined
+      : await this.fetchTikTokVideoBuffer(firstPost.media?.[0]?.path!);
+    const sourceInfoBody = videoBuffer
+      ? buildTikTokVideoFileUploadSourceInfo(videoBuffer.length)
+      : this.buildTikokSourceInfoBody(firstPost);
 
     console.log({
       ...this.buildTikokPostInfoBody(firstPost),
-      ...this.buildTikokSourceInfoBody(firstPost),
+      ...sourceInfoBody,
     });
     const {
-      data: { publish_id },
+      data: { publish_id, upload_url },
     } = await (
       await this.fetch(
         `https://open.tiktokapis.com/v2/post/publish${this.postingMethod(
@@ -590,11 +640,24 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
           },
           body: JSON.stringify({
             ...this.buildTikokPostInfoBody(firstPost),
-            ...this.buildTikokSourceInfoBody(firstPost),
+            ...sourceInfoBody,
           }),
         }
       )
     ).json();
+
+    if (videoBuffer) {
+      if (!upload_url) {
+        throw new BadBody(
+          'tiktok-file-upload',
+          JSON.stringify({ publish_id, upload_url }),
+          '',
+          'TikTok did not return a video upload URL'
+        );
+      }
+
+      await this.uploadTikTokVideoFile(upload_url, videoBuffer);
+    }
 
     const { url, id: videoId } = await this.uploadedVideoSuccess(
       integration.profile!,
