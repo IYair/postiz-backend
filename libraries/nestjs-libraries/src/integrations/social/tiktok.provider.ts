@@ -584,14 +584,15 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       videoBuffer.length
     )) {
       const chunk = videoBuffer.subarray(start, end + 1);
+      // Don't set Content-Length manually: undici rejects it (UND_ERR_INVALID_ARG)
+      // and computes it from the body buffer anyway. Content-Range stays required by TikTok.
       const response = await fetch(uploadUrl, {
         method: 'PUT',
         headers: {
           'Content-Type': 'video/mp4',
-          'Content-Length': String(chunk.length),
           'Content-Range': `bytes ${start}-${end}/${videoBuffer.length}`,
         },
-        body: chunk as any,
+        body: new Uint8Array(chunk),
       });
 
       if (!response.ok) {
