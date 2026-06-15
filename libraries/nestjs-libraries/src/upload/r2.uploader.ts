@@ -14,6 +14,7 @@ import { Request, Response } from 'express';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import {
   ALLOWED_EXT_TO_MIME,
+  isMultipartUploadContentCompatible,
   normalizeExtension,
   resolveMultipartUploadFileType,
 } from '@gitroom/nestjs-libraries/upload/multipart.upload-type';
@@ -192,8 +193,6 @@ export async function completeMultipartUpload(req: Request, res: Response) {
       );
       return res.status(400).json({ message: 'Unsupported file type.' });
     }
-    const expectedMime = ALLOWED_EXT_TO_MIME[safeExt];
-
     const head = await R2.send(
       new GetObjectCommand({
         Bucket: CLOUDFLARE_BUCKETNAME,
@@ -209,7 +208,10 @@ export async function completeMultipartUpload(req: Request, res: Response) {
     const prefix = Buffer.concat(chunks);
     const detected = await fromBuffer(prefix);
 
-    if (!detected || detected.mime !== expectedMime) {
+    if (
+      !detected ||
+      !isMultipartUploadContentCompatible(safeExt, detected.mime)
+    ) {
       await R2.send(
         new DeleteObjectCommand({ Bucket: CLOUDFLARE_BUCKETNAME, Key: key })
       );

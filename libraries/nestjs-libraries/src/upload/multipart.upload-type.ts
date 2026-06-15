@@ -24,6 +24,10 @@ const ALLOWED_MIME_TO_EXT: Record<string, string> = {
   'video/mp4': '.mp4',
 };
 
+const COMPATIBLE_DETECTED_MIME_BY_EXT: Record<string, string[]> = {
+  '.mp4': ['video/mp4', 'video/quicktime'],
+};
+
 export function normalizeExtension(filename: string): string | null {
   const ext = path.extname(filename || '').toLowerCase();
   return ALLOWED_EXT_TO_MIME[ext] ? ext : null;
@@ -40,4 +44,21 @@ export function resolveMultipartUploadFileType(
 
   const ext = normalizeExtension(filename);
   return ext ? { ext, mime: ALLOWED_EXT_TO_MIME[ext] } : null;
+}
+
+export function isMultipartUploadContentCompatible(
+  ext: string,
+  detectedMime?: string
+): boolean {
+  const normalizedMime = detectedMime?.split(';')[0]?.trim().toLowerCase();
+  if (!normalizedMime) {
+    return false;
+  }
+
+  const normalizedExt = ext.toLowerCase();
+  const compatibleMimes = COMPATIBLE_DETECTED_MIME_BY_EXT[normalizedExt] || [
+    ALLOWED_EXT_TO_MIME[normalizedExt],
+  ];
+
+  return compatibleMimes.includes(normalizedMime);
 }
