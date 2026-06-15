@@ -11,29 +11,14 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Request, Response } from 'express';
-import crypto from 'crypto';
-import path from 'path';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
+import {
+  ALLOWED_EXT_TO_MIME,
+  normalizeExtension,
+  resolveMultipartUploadFileType,
+} from '@gitroom/nestjs-libraries/upload/multipart.upload-type';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { fromBuffer } = require('file-type');
-
-const ALLOWED_EXT_TO_MIME: Record<string, string> = {
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.png': 'image/png',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.avif': 'image/avif',
-  '.bmp': 'image/bmp',
-  '.tif': 'image/tiff',
-  '.tiff': 'image/tiff',
-  '.mp4': 'video/mp4',
-};
-
-function normalizeExtension(filename: string): string | null {
-  const ext = path.extname(filename || '').toLowerCase();
-  return ALLOWED_EXT_TO_MIME[ext] ? ext : null;
-}
 
 const {
   CLOUDFLARE_ACCOUNT_ID,
@@ -106,19 +91,21 @@ export async function simpleUpload(
 }
 
 export async function createMultipartUpload(req: Request, res: Response) {
-  const { file, fileHash } = req.body;
-  const safeExt = normalizeExtension(file?.name || '');
-  if (!safeExt) {
+  const { file, fileHash, contentType } = req.body;
+  const uploadType = resolveMultipartUploadFileType(
+    file?.name || '',
+    file?.type || contentType
+  );
+  if (!uploadType) {
     return res.status(400).json({ message: 'Unsupported file type.' });
   }
-  const safeContentType = ALLOWED_EXT_TO_MIME[safeExt];
-  const randomFilename = generateRandomString() + safeExt;
+  const randomFilename = generateRandomString() + uploadType.ext;
 
   try {
     const params = {
       Bucket: CLOUDFLARE_BUCKETNAME,
       Key: `${randomFilename}`,
-      ContentType: safeContentType,
+      ContentType: uploadType.mime,
       Metadata: {
         'x-amz-meta-file-hash': fileHash,
       },
