@@ -318,15 +318,30 @@ export class MediaController {
       return upload;
     }
 
-    // @ts-ignore
-    const name = upload.Location.split('/').pop();
+    if (res.headersSent) {
+      return;
+    }
+
+    const completedUpload = upload as { Location?: string };
+
+    if (!completedUpload?.Location) {
+      return res
+        .status(500)
+        .json({ message: 'Upload completed without a file location.' });
+    }
+
+    const name = completedUpload.Location.split('/').pop();
+    if (!name) {
+      return res
+        .status(500)
+        .json({ message: 'Upload completed without a file name.' });
+    }
     const originalName = req.body?.file?.name;
 
     const saveFile = await this._mediaService.saveFile(
       org.id,
       name,
-      // @ts-ignore
-      upload.Location,
+      completedUpload.Location,
       originalName || undefined
     );
 
